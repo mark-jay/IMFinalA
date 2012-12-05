@@ -1,10 +1,12 @@
 import cv2
 import numpy as np
 from numpy import array
+from copy import copy, deepcopy
 
 # import sys
 # sys.path.append('G:\sting\univer\master 2\IMAGE PROCESSING\Lab 1\images')    
-
+""" hier [[[next, previous, firstChild, parent]]] """
+""" getXY = lambda p : (p[0][0], p[0][1]) # kinda weird """
 # fs - listof functions
 def comp(fs):
     def f(f1, f2):
@@ -27,9 +29,13 @@ def myPrint(im):
     cv2.waitKey(0)
     cv2.destroyWindow(winName)
 
-def myThreshold(ims):
-    (treshold, _) = cv2.threshold(ims, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    return cv2.threshold(ims, treshold, 255, cv2.THRESH_BINARY)[1]
+def mkThresholdFn(tr = 0):
+    def tresholdFn(ims):
+        if (tr == 0):
+            return cv2.threshold(ims, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+        #(treshold, _) = cv2.threshold(ims, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        return cv2.threshold(ims, tr, 255, cv2.THRESH_BINARY)[1]
+    return tresholdFn
 
 def getKernel(n = 7):
     return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))
@@ -74,41 +80,112 @@ def splitFn(n):
     return f
 
 # has a side effect: write the answer to the second arr
-def sumMask(m1, m2):
-    """
-    for i in range(len(m1)):
-        for j in range(len(m1[i])):
-            # if (m1[i][j] > 0) | (m2[i][j] > 0):
-                # m2[i][j] = 255
-            # m1[i][j] = 100
-            if (m1[i][j] > 0):
-                pass
-                #m2[i][j] = 255
-    """
+
+""" ----------------------- """
+""" masks combinators """
+
+def sumMasks(m1, m2):
     return m1 + m2
 
-def mkMaskCombinator(mFn1, mFn2):
-    return lambda im : sumMask(mFn1(im), mFn2(im))
+def combineMasks(combinator, mFn1, mFn2):
+    def f(im): 
+        print "hey"
+        print mFn1(im), mFn2(im)
+        print combinator(mFn1(im), mFn2(im))
+        return combinator(mFn1(im), mFn2(im))
+    return f
+
+
+
+
+""" finds all the children of the holes. I.e. finds all inner holes """
+def childrenIdxs(hier, firstChildIdx):
+    idx = hier[0][firstChildIdx][2]
+    childrenIdxs = [idx]
+    while(hier[0][idx][0] != -1):
+        idx = hier[0][idx][0] # first child
+        childrenIdxs.append(idx)
+    return childrenIdxs
+
+""" counting sum of all the inner holes of the given hole """
+def sumHolesArea(hier, contours, firstChildIdx):
+    idxs = childrenIdxs(hier, firstChildIdx)
+    return sum( map(lambda i : cv2.contourArea( contours[i] ), idxs) )
+
+""" finds all the contours which have area more than 'sufficientArea' 
+    returns all the contours and a list of the indexes that meet the 
+    requirements """
+def findAllContourByHolesArea(gray, sufficientArea = 1000):    
+    contour,hier = cv2.findContours(gray,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
+ 
+    idxs = []   
+    for i, cnt in enumerate (contour):
+        if (hier[0][i][2] != -1) & (sumHolesArea (hier, contour, i) > sufficientArea) :
+            idxs.append(i)
+    
+    return (contour, idxs)
+
+
+def itemsWithBigHoles(orig):
+    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 1000)
+    gray = np.zeros((len (orig), len (orig[0])))
+    
+    cntIdx = 0
+    color = 1
+    thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
+    map(lambda i : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
+        idxs)        
+
+    return gray
+
+""" a wrapper around a combinator 'f' and array of images. Then read, 
+    apply function 'f' to the read image and print the result to a named window """
+def printImg(f, imgs):
+    map(comp([myPrint, f, cv2.imread]), imgs)
+
+def printArr(img):
+    print img
+    return img
+
+def invert(img):
+    return (img+1)%2
 
 # 8, 5, 8, 5, 4, 4, 5, 3, 3, 3, 
+# http://stackoverflow.com/questions/10316057/filling-holes-inside-a-binary-object
+
 def run():
     n = 10
     def printImg(f, imgs):
         map(comp([myPrint, f, cv2.imread]), imgs)
 
-    generalContoursFn = comp([myContours, myThreshold, mycvtConvert()])
-    defaultMaskFn = comp([closeMO(getKernel(n)), myThreshold, mycvtConvert()])
-    # redMaskFn = comp([myPrint, closeMO(), myThreshold, mycvtConvert(), cv2.imread])
-    redMaskFn = comp([closeMO(getKernel(n)), myThreshold, splitFn(2)]) # 2 is red
+    """ making a mask for coins """
     
-    maskFn = comp([erode(), erode(), erode(), mkMaskCombinator(defaultMaskFn, redMaskFn)])
+    """ for all the coins except red(brown?) one """
+    defaultMaskFn = comp([closeMO(getKernel(n)), mkThresholdFn(), mycvtConvert()])
+    """ 2 is a red color. for getting red coins """
+    redMaskFn = comp([invert, itemsWithBigHoles, closeMO(getKernel(5)), 
+                             mkThresholdFn(180), splitFn(2)])
+    """ combination of both """
+    maskFn = comp([combineMasks(cv2.bitwise_and, defaultMaskFn, redMaskFn)])
+    #maskFn = comp([erode(), erode(), erode(), mkMaskCombinator(defaultMaskFn, redMaskFn)])
     
-    printImg(lambda x:x, allImages[:])
-    printImg(maskFn, allImages[:])
+    # idk why mb will be useful later
+    generalContoursFn = comp([myContours, mkThresholdFn(), mycvtConvert()])
+
+    # printImg(lambda x:x, allImages[:])
+    # printImg(maskFn, allImages[:])
+
+    startN = 9
     
+    printImg(lambda x:x, allImages[startN:])
+    printImg(redMaskFn, allImages[startN:])
+    printImg(defaultMaskFn, allImages[startN:])
+    printImg(maskFn, allImages[startN:])
+    
+    # printImg(someFun1, allImages[8:])
     # printImg(redMaskFn, allImages[3:4])
-    
-    # printImg(generalContoursFn, allImages[:1])
+     
+    # printImg(generalContoursFn, allImages[:])
     # printImg(maskFn, allImages[3:4])
     # printImg(redMaskFn, allImages[3:4])
     
