@@ -3,6 +3,32 @@ import numpy as np
 from numpy import array
 from copy import copy, deepcopy
 
+
+""" ---------------- """
+""" combinator utils """
+
+""" a wrapper around a combinator 'f' and array of images. Then read, 
+    apply function 'f' to the read image and print the result to a named window """
+def printImg(f, imgs):
+    map(comp([myPrint, f, cv2.imread]), imgs)
+
+def printArr(img):
+    print "printing arr: "
+    print img
+    return img
+
+def printMaxMinVals(im):
+    maxV = max(map(max,im))
+    minV = min(map(min,im))
+    print "(max = %s, min = %s) " % (maxV, minV)
+    return im
+
+def printTypes(im):
+    print "im type = %s" % type(im)
+    print "im[0] type = %s" % type(im[0])
+    print "im[0][0] type = %s" % type(im[0][0])
+    return im
+
 # import sys
 # sys.path.append('G:\sting\univer\master 2\IMAGE PROCESSING\Lab 1\images')    
 """ hier [[[next, previous, firstChild, parent]]] """
@@ -89,10 +115,8 @@ def sumMasks(m1, m2):
 
 def combineMasks(combinator, mFn1, mFn2):
     def f(im): 
-        print "hey"
-        print mFn1(im), mFn2(im)
-        print combinator(mFn1(im), mFn2(im))
-        return combinator(mFn1(im), mFn2(im))
+        im1, im2 = np.array(mFn1(im), int), np.array(mFn2(im), int)
+        return combinator(im1, im2)
     return f
 
 
@@ -128,24 +152,15 @@ def findAllContourByHolesArea(gray, sufficientArea = 1000):
 
 def itemsWithBigHoles(orig):
     (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 1000)
-    gray = np.zeros((len (orig), len (orig[0])))
+    gray = np.zeros((len (orig), len (orig[0])), int)
     
     cntIdx = 0
-    color = 1
+    color = 255
     thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
     map(lambda i : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
-        idxs)        
+        idxs)
 
     return gray
-
-""" a wrapper around a combinator 'f' and array of images. Then read, 
-    apply function 'f' to the read image and print the result to a named window """
-def printImg(f, imgs):
-    map(comp([myPrint, f, cv2.imread]), imgs)
-
-def printArr(img):
-    print img
-    return img
 
 def invert(img):
     return (img+1)%2
