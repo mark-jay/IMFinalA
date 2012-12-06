@@ -3,9 +3,11 @@ import numpy as np
 from numpy import array
 from copy import copy, deepcopy
 
+""" hier [[[next, previous, firstChild, parent]]] """
+""" getXY = lambda p : (p[0][0], p[0][1]) # kinda weird """
 
-""" ---------------- """
-""" combinator utils """
+
+""" ----------------  combinator utils: printing """
 
 """ a wrapper around a combinator 'f' and array of images. Then read, 
     apply function 'f' to the read image and print the result to a named window """
@@ -29,10 +31,22 @@ def printTypes(im):
     print "im[0][0] type = %s" % type(im[0][0])
     return im
 
+def printAllValues(im):
+    a1 = [v for a1 in im for v in a1]
+    l = float(len(a1))
+    m = {}
+    def f(k):
+        if k in m:
+            m[k] = m[k] + 1
+        else:
+            m[k] = 1
+    map(f, a1)
+    probValues = map(lambda v : float(str(v / l)[:5]), m.values())
+    print "all values: %s" % zip(m.keys(), probValues)
+    return im
+
 # import sys
 # sys.path.append('G:\sting\univer\master 2\IMAGE PROCESSING\Lab 1\images')    
-""" hier [[[next, previous, firstChild, parent]]] """
-""" getXY = lambda p : (p[0][0], p[0][1]) # kinda weird """
 # fs - listof functions
 def comp(fs):
     def f(f1, f2):
@@ -113,10 +127,10 @@ def splitFn(n):
 def sumMasks(m1, m2):
     return m1 + m2
 
-def combineMasks(combinator, mFn1, mFn2):
+def combineMasks(combinator, mFn1, mFn2, type1 = int, type2 = np.float64):
     def f(im): 
-        im1, im2 = np.array(mFn1(im), int), np.array(mFn2(im), int)
-        return combinator(im1, im2)
+        im1, im2 = np.array(mFn1(im), type1), np.array(mFn2(im), type1)
+        return np.array(combinator(im1, im2), type2)
     return f
 
 
@@ -136,26 +150,41 @@ def sumHolesArea(hier, contours, firstChildIdx):
     idxs = childrenIdxs(hier, firstChildIdx)
     return sum( map(lambda i : cv2.contourArea( contours[i] ), idxs) )
 
-""" finds all the contours which have area more than 'sufficientArea' 
+""" finds all the contours which have an area more than 'minArea', but < 'maxArea'
     returns all the contours and a list of the indexes that meet the 
     requirements """
-def findAllContourByHolesArea(gray, sufficientArea = 1000):    
+def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000):    
     contour,hier = cv2.findContours(gray,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
  
     idxs = []   
     for i, cnt in enumerate (contour):
-        if (hier[0][i][2] != -1) & (sumHolesArea (hier, contour, i) > sufficientArea) :
+        area = sumHolesArea (hier, contour, i)
+        if (hier[0][i][2] != -1) & (area > minArea) & (area < maxArea):
+            print "area = ", area
             idxs.append(i)
     
     return (contour, idxs)
 
 
 def itemsWithBigHoles(orig):
-    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 1000)
-    gray = np.zeros((len (orig), len (orig[0])), int)
+    # 1500, 2100 min and max sizes of the holes of the red stuff
+    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 1800, 2100)
+    gray = np.zeros((len (orig), len (orig[0])))
     
     cntIdx = 0
-    color = 255
+    color = 1
+    thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
+    map(lambda i : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
+        idxs)
+
+    return gray
+
+def fillSmallHoles(orig):
+    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 0, 500)
+    gray = np.zeros((len (orig), len (orig[0])))
+    
+    cntIdx = 0
+    color = 1
     thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
     map(lambda i : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
         idxs)
@@ -163,7 +192,9 @@ def itemsWithBigHoles(orig):
     return gray
 
 def invert(img):
+    # return (img+255)%510
     return (img+1)%2
+
 
 # 8, 5, 8, 5, 4, 4, 5, 3, 3, 3, 
 # http://stackoverflow.com/questions/10316057/filling-holes-inside-a-binary-object
@@ -175,10 +206,13 @@ def run():
 
     """ making a mask for coins """
     
-    """ for all the coins except red(brown?) one """
-    defaultMaskFn = comp([closeMO(getKernel(n)), mkThresholdFn(), mycvtConvert()])
+    """ for all the coins except red(brown?) one,
+        both close and open operations was not able to do what I wanted """
+    defaultMaskFn = comp([fillSmallHoles, mkThresholdFn(), 
+                          mycvtConvert()])
     """ 2 is a red color. for getting red coins """
-    redMaskFn = comp([invert, itemsWithBigHoles, closeMO(getKernel(5)), 
+    redMaskFn = comp([invert, 
+                      itemsWithBigHoles, closeMO(getKernel(5)), 
                              mkThresholdFn(180), splitFn(2)])
     """ combination of both """
     maskFn = comp([combineMasks(cv2.bitwise_and, defaultMaskFn, redMaskFn)])
@@ -190,12 +224,13 @@ def run():
     # printImg(lambda x:x, allImages[:])
     # printImg(maskFn, allImages[:])
 
-    startN = 9
+    startN = 0
+    lastN = 20 
     
-    printImg(lambda x:x, allImages[startN:])
-    printImg(redMaskFn, allImages[startN:])
-    printImg(defaultMaskFn, allImages[startN:])
-    printImg(maskFn, allImages[startN:])
+    printImg(lambda x:x, allImages[startN:lastN])
+    printImg(redMaskFn, allImages[startN:lastN])
+    #printImg(defaultMaskFn, allImages[startN:lastN])
+    #printImg(maskFn, allImages[startN:lastN])
     
     # printImg(someFun1, allImages[8:])
     # printImg(redMaskFn, allImages[3:4])
