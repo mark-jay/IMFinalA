@@ -4,6 +4,9 @@ from numpy import array
 from copy import copy, deepcopy
 from math import pi, sqrt
 from operator import itemgetter
+
+from Utils import *
+from CoinsCounting import *
  
 """ --------------------------  useful notes   -------------
 
@@ -14,305 +17,12 @@ from operator import itemgetter
 
 deleteme = []
 
-""" ----------------  utils, and local constants """
-
-def getFeatures(contour):
-    m = cv2.moments(contour)
-    f = {}
-    
-    f['area'] = m['m00']
-    f['perimeter'] = cv2.arcLength(contour,True)
-    # bounding box: x,y,width,height
-    f['BoundingBox'] = cv2.boundingRect(contour)
-    # centroid    = m10/m00, m01/m00 (x,y)
-    if (m['m00'] == 0):
-        f['Centroid'] = 'undefined'
-    else:
-        f['Centroid'] = ( m['m10']/m['m00'],m['m01']/m['m00'] )
-    
-    # EquivDiameter: diameter of circle with same area as region
-    f['EquivDiameter'] = np.sqrt(4*f['area']/np.pi)
-    # Extent: ratio of area of region to area of bounding box
-    f['Extent'] = f['area']/(f['BoundingBox'][2]*f['BoundingBox'][3])
-    return f
-
-# fs - listof functions
-def comp(*fs):
-    def f(f1, f2):
-        return lambda x: f1(f2(x))
-    return reduce(f, fs)
-
-def identity(x): return x
-
-def const(x): return lambda *_ : x
-
-def getCircularity(per, area):
-    return (per*per) / area
-
-def isCircle(per, area):
-    if (getCircularity(per, area) < 16):
-        return True
-    return False
-
-allImages = ["P1000697s.jpg", "P1000698s.jpg", 
-            "P1000699s.jpg", "P1000703s.jpg", "P1000705s.jpg", 
-            "P1000706s.jpg", "P1000709s.jpg", "P1000710s.jpg", 
-            "P1000713s.jpg"]
-
-allExceptedValues = [208, 133, 78, 67, 162, 167, 130, 130, 170]
-
-def getKernel(n = 7):
-    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))
-
-""" finds all the children of the holes. I.e. finds all inner holes """
-def childrenIdxs(hier, firstChildIdx):
-    idx = hier[0][firstChildIdx][2]
-    childrenIdxs = [idx]
-    while(hier[0][idx][0] != -1):
-        idx = hier[0][idx][0] # first child
-        childrenIdxs.append(idx)
-    return childrenIdxs
-
-""" counting sum of all the inner holes of the given hole """
-def sumHolesArea(hier, contours, firstChildIdx):
-    idxs = childrenIdxs(hier, firstChildIdx)
-    return sum( map(lambda i : cv2.contourArea( contours[i] ), idxs) )
-
-""" finds all the contours which have an area more than 'minArea', but < 'maxArea'
-    returns all the contours and a list of the pairs(indexes, area) that meet the 
-    requirements """
-def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000):    
-    contour,hier = cv2.findContours(gray,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
- 
-    idxs = []   
-    for i, cnt in enumerate (contour):
-        area = sumHolesArea (hier, contour, i)
-        if (hier[0][i][2] != -1) & (area > minArea) & (area < maxArea):
-            idxs.append((i, area))
-
-    return (contour, idxs)
-
-""" ----------------  coins counting """
-[(1, 10017.0), (2, 13967.0), (5, 17115.0), 
- (10, 15040.5), (20, 18918.5), (20, 19390.0), (50, 22790.5), (100, 20872.0)]
-    
-coinsAreas = [(1, 10017.0), (2, 13967.0), (5, 17650.0), (10, 15000),
-              (20, 19000), (50, 23000), (100, 21000)]
-
-def allCoinsCombosMaker(coinsAreas):
-
-    def areaToRad(area):
-        # S = Pi*r*r,
-        r = sqrt(area/pi)
-        return r
-
-    def radToPer(r):
-        return 2*pi*r
-
-    # circularity of sum:
-    # (P1+P2)^2 / (S1+S1) = 
-    # (((2*pi*r1) + (2*pi*r2))^2) / ((pi*r1*r1) + (pi*r2*r2)) =
-    # ((2*pi*(r1 + r2)))^2 / pi(r1*r1 + r2*r2) =
-    # 4*pi*pi*(r1 + r2)^2 / pi(r1*r1 + r2*r2) =
-    # 4*pi*(r1 + r2)^2 / (r1*r1 + r2*r2)
-    def circOfSum(r1, r2):
-        return (4*pi*(r1 + r2)*(r1 + r2)) / (r1*r1 + r2*r2)
-    
-    def expandTuple(c):
-        v, area = c
-        per = radToPer(areaToRad(area))
-        return (v, area, per, getCircularity(per, area))
-
-    # 2 pair each of which contains value of the coin and its area
-    def mkCombo((c1, c2)):
-        (v1, area1) = c1
-        (v2, area2) = c2
-        (r1, r2) = (areaToRad(area1), areaToRad(area2))
-        (per1, per2) = (radToPer(r1), radToPer(r2))
-        return (v1+v2, area1+area2, per1+per2, circOfSum(r1,r2))
-    
-    def mkAllPair(lst):
-        n = len( lst )
-        acc = []
-        for i in range(n):
-            for j in range(i,n):
-                acc.append((lst[i], lst[j]))
-        return acc
-
-    return map(mkCombo, mkAllPair(coinsAreas)) + map(expandTuple, coinsAreas)
-
-allCoinsCombos = allCoinsCombosMaker(coinsAreas)
-
-def shapeToValue((shapeArea, shapePerimeter)):
-    if (isCircle(shapePerimeter, shapeArea)):
-        return areaToCoinValue(shapeArea)
-    return 0 # FIXME: must be msth else
-
-""" [(Float, Float)], an area and a perimeter """
-def coinsSum(listOfAreasPerimeters):
-    return sum(map(areaToCoinValue, listOfAreasPerimeters))
-
-def featToValue(f):
-    fPer = f['perimeter']
-    fArea = f['area']
-    if (fArea*fPer > 0):                     # an object
-        fCirc= getCircularity(fPer, fArea)
-        if ((fCirc < 18.5) |                  # a single coin
-            ((fCirc > 20.) & (fCirc < 26.))):  # two coins
-            def f((v, area, per, circ)):
-                areaC = min(fArea, area) / max(fArea, area) # coefficient
-                perC = min(fPer, per) / max(fPer, per)      # coefficient
-                circC = min(fCirc, circ) / max(fCirc, circ)     # coefficient
-                coef = areaC * perC * circC
-                return (coef, v)
-            (coef,v) = sorted(map(f, allCoinsCombos), reverse=True)[0]
-            if (coef > 0.1):
-                return v
-    return 0
-
-def featuresToCoinsSum(fs):
-    return sum(map(featToValue, fs))
-
-""" ----------------  utils: printing """
-
-def showImg(im):
-    winName = '__'
-    cv2.namedWindow(winName)
-    cv2.imshow(winName, im)
-    cv2.waitKey(0)
-    cv2.destroyWindow(winName)
-    
-""" a wrapper around a combinator 'f' and array of images. Then read, 
-    apply function 'f' to the read image and print the result to a named window """
-def showImgs(f, imgs):    
-    map(comp(showImg, f, cv2.imread), imgs)
-
-def printArr(img):
-    print "printing arr: "
-    print img
-    return img
-
-def printMaxMinVals(im):
-    maxV = max(map(max,im))
-    minV = min(map(min,im))
-    print "(max = %s, min = %s) " % (maxV, minV)
-    return im
-
-def printTypes(im):
-    print "im type = %s" % type(im)
-    print "im[0] type = %s" % type(im[0])
-    print "im[0][0] type = %s" % type(im[0][0])
-    return im
-
-def printAllValues(im):
-    print im
-    a1 = [v for a1 in im for v in a1]
-    l = float(len(a1))
-    m = {}
-    def f(k):
-        if k in m:
-            m[k] = m[k] + 1
-        else:
-            m[k] = 1
-    map(f, a1)
-    probValues = map(lambda v : float(str(v / l)[:5]), m.values())
-    print "all values: %s" % zip(m.keys(), probValues)
-    return im
-
-""" ----------------  utils: image processing basic stuff """
-
-#another way: im_gray = cv2.imread('grayscale_image.png', cv2.CV_LOAD_IMAGE_GRAYSCALE)
-def mycvtConvert(color = cv2.COLOR_BGR2GRAY, t = np.uint8):
-    return lambda im : cv2.cvtColor(np.array(im, t), color)
-
-def mkThresholdFn(tr = 0):
-    def tresholdFn(ims):
-        if (tr == 0):
-            return cv2.threshold(ims, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        #(treshold, _) = cv2.threshold(ims, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        return cv2.threshold(ims, tr, 255, cv2.THRESH_BINARY)[1]
-    return tresholdFn
-
-def myContours1(im):
-    im = np.array(im)
-    (contours , hierarchy1)= cv2.findContours(np.array(im), cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    # cv2.imshow(winName, contours[x])
-    # showImg(contours)
-    # cv2.drawContours(i, contours, -1, 150, hierarchy = hierarchy1)
-    cv2.drawContours(im, contours, 0, 255, 2, 
-                            hierarchy = hierarchy1)
-    return im
-
-def dilate(kernel = getKernel()):
-    return lambda img : cv2.dilate(img, kernel)
-
-def erode(kernel = getKernel()):
-    return lambda img : cv2.erode(img, kernel)
-
-def closeMO(kernel = getKernel(), iterations = 1):
-    return lambda im: cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel, 
-                                       iterations = iterations)
-def openMO(kernel = getKernel(), iterations = 1):
-    return lambda im: cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel, 
-                                       iterations = iterations)
-
-def myContours(im):
-    im = np.array(im)
-    (contours , hierarchy1)= cv2.findContours(im, 1 , 1)
-    cv2.drawContours(im, contours, -1, 150,  hierarchy = hierarchy1)
-    return im
-    
-# n must be 0, 1 or 2
-def splitFn(n): 
-    def f(im):
-        return cv2.split(im)[n]
-    return f
-
-def invert(maxV = 1):
-    v1 = maxV
-    v2 = maxV+maxV
-    def f(img): 
-        t = img.dtype
-        return np.array(((img+1)%(maxV+1))*maxV, t)
-    return f
-
-""" ----------------  masks combinators  """
-
-def sumMasks(m1, m2):
-    return m1 + m2
-
-def combineMasks(combinator, mFn1, mFn2, type1 = int, type2 = np.float64):
-    def f(im): 
-        im1, im2 = np.array(mFn1(im), type1), np.array(mFn2(im), type1)
-        return np.array(combinator(im1, im2), type2)
-    return f
-
-""" ----------------  utils: image processing complicated stuff """
-
-def itemsWithBigHoles(orig):
-    # 1500, 2100 min and max sizes of the holes of the red stuff
-    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 1800, 2100)
-    gray = np.zeros((len (orig), len (orig[0])))
-    
-    cntIdx = 0
-    color = 1
-    thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
-    map(lambda (i, _) : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
-        idxs)
-
-    return gray
-
-def fillSmallHoles(orig):
-    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 0, 350000)
-    gray = np.zeros((len (orig), len (orig[0])))
-    
-    cntIdx = 0
-    color = 1
-    thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
-    map(lambda (i, _) : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
-        idxs)
-
-    return gray
+#FIXME delete me 
+___id___ = 0
+def getId():
+    global ___id___
+    ___id___ = ___id___ + 1
+    return ___id___
 
 """ ----------------  utils: image labeling """
 
@@ -322,7 +32,6 @@ def fillSmallHoles(orig):
 def labelText(labeller):
     def f(img):
         def g((text, point)):
-            deleteme.append(text)
             cv2.putText(img, text[:5], point, cv2.FONT_ITALIC, 0.5, 
                         0, 2)
         map(g, labeller(img))
@@ -340,18 +49,19 @@ def mkCoinsAreaLabeller():
     minArea, maxArea = 2000, 200000000
     def f(orig):
         def g(f):
-            v = featToValue(f)
+            id_ = getId()
+            print id_
+            v = logged(featToValue)(f)
             if (v!=0):
                 point = (int(f['Centroid'][0]), int(f['Centroid'][1]))
-                text = str(v)
+                text = str(id_)
+                deleteme.append((f['area'], v))
                 return [(text, point)]
             return []
         
         return [x for a1 in map(g, imgToFueaturesList(orig)) for x in a1]
         
     return f
-
-
 
 """ ----------------  tests """
 
@@ -381,17 +91,14 @@ def run():
     
     """ for all the coins except red(brown?) one,
         both close and open operations was not able to do what I wanted """
-    defaultMaskFn = comp(#labelText(const([("asd",(110,110))])), 
-                          #printTypes,
-                          #mycvtConvert(cv2.COLOR_GRAY2BGR),
-                          #printTypes,
-                          fillSmallHoles, mkThresholdFn(), 
-                          mycvtConvert())
+    defaultMaskFn = comp(fillSmallHoles, mkThresholdFn(), 
+                         mycvtConvert())
     """ 2 is a red color. for getting red coins """
     redCoinsMask = comp(invert(255), 
                          mkThresholdFn(110), splitFn(0))
     """ combination of both """
-    maskFn = combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask)
+    maskFn = comp(fillSmallHoles, 
+                  combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
     filteredMaskFn = addRedStuffFilter(maskFn)
     #maskFn = comp([erode(), erode(), erode(), mkMaskCombinator(defaultMaskFn, redStuffFilter)])
 
@@ -426,9 +133,9 @@ def run():
                       allImages[i:i+1])
     """ 
     
-    showImgs(lambda x:x, allImages[0:1])
+    showImgs(lambda x:x, allImages[0:4])
     showImgs(comp(labelText(mkCoinsAreaLabeller()), maskFn), 
-                  allImages[0:1])
+                  allImages[0:4])
     print(deleteme[::-1])
     testImages(maskFn, allImages, allExceptedValues)
 """
