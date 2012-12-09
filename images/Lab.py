@@ -79,99 +79,42 @@ def testImages(f, images, expectedValues):
 """ ----------------  resulting filters and entry point """
 
 def addRedStuffFilter(maskFn):
-    redStuffFilter = comp(invert(), 
+    redStuffFilter = comp(invert, 
                           itemsWithBigHoles, closeMO(getKernel(5)), 
                           mkThresholdFn(180), splitFn(2))
     return combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)
 
 def run():
-    n = 10
+    n = 3
 
     """ making a mask for coins """
     
     """ for all the coins except red(brown?) one,
         both close and open operations was not able to do what I wanted """
-    defaultMaskFn = comp(fillSmallHoles, mkThresholdFn(), 
+    defaultMaskFn = comp(fillSmallHoles(), mkThresholdFn(), 
                          mycvtConvert())
     """ 2 is a red color. for getting red coins """
-    redCoinsMask = comp(invert(255), 
-                         mkThresholdFn(110), splitFn(0))
+    f = dilate
+    op = cv2.MORPH_ELLIPSE
+    redCoinsMask = comp(#f(cv2.getStructuringElement(op, (n,n))), 
+                        invert, 
+                        fillSmallHoles(0, 1000000), 
+                        mkThresholdFn(190), splitFn(2))
     """ combination of both """
-    maskFn = comp(fillSmallHoles, 
+    maskFn = comp(#closeMO(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))),
                   combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
-    filteredMaskFn = addRedStuffFilter(maskFn)
-    #maskFn = comp([erode(), erode(), erode(), mkMaskCombinator(defaultMaskFn, redStuffFilter)])
 
-    # idk why mb will be useful later
+    filteredMaskFn = addRedStuffFilter(maskFn)
+
     generalContoursFn = comp(myContours, mkThresholdFn(), splitFn(2))
 
-    # showImgs(lambda x:x, allImages[:])
-    # showImgs(maskFn, allImages[:])
-
-    startN = 0
-    lastN = 99
-
-# 8, 5, 8, 5, 4, 4, 5, 3, 3, 3, 
-
-    #  showImgs(lambda x:x, allImages[startN:lastN])
-    #showImgs(redCoinsMask, allImages[startN:lastN])
-    #showImgs(redStuffFilter, allImages[startN:lastN])
+    startN = 3
+    lastN = 4
     
-    #showImgs(comp(labelText(mkCoinsAreaLabeller()), maskFn), 
-    #              allImages[startN:lastN])
-    #showImgs(filteredMaskFn , allImages[startN:lastN])
-
-    #def f(img) : print img
-    #map(f, sorted(allCoinsCombos, key=itemgetter(2)))
-    
-    """
-    for i in range (len (allImages)):#len (allImages)):
-        global deleteme
-        deleteme = []
-        showImgs(lambda x:x, allImages[i:i+1])
-        showImgs(comp(labelText(mkCoinsAreaLabeller()), maskFn), 
-                      allImages[i:i+1])
-    """ 
-    
-    showImgs(lambda x:x, allImages[0:4])
-    showImgs(comp(labelText(mkCoinsAreaLabeller()), maskFn), 
-                  allImages[0:4])
+    showImgs(identity, allImages[startN:lastN])
+    showImgs(defaultMaskFn, allImages[startN:lastN])
+    showImgs(redCoinsMask, allImages[startN:lastN])
+    #showImgs(maskFn, allImages[startN:lastN])
     print(deleteme[::-1])
-    testImages(maskFn, allImages, allExceptedValues)
-"""
-[(17687.5, 5), (10347.0, 1), (23194.5, 50), (14316.5, 2), (15191.0, 10), 
- (19624.0, 20), (19271.5, 20), (21027.5, 100)]
-[(14110.5, 2), (15240.0, 10), (10284.5, 1), (19248.5, 20), (20928.0, 100)]
-[(17687.5, 5), (10347.0, 1), (23194.5, 50), (14316.5, 2), (15191.0, 10), 
- (19624.0, 20), (19271.5, 20), (21027.5, 100)]
-[(23082.0, 50), (13955.0, 2), (10012.5, 1), (17212.0, 5), (19189.0, 20)]
-[(23690.0, 50), (14373.5, 2), (15794.5, 10), (18106.0, 20), (29757.5, 50)]
-[(13806.5, 2), (43957.5, 50), (15395.5, 10)]
-[(22997.5, 50), (31096.5, 50), (15377.0, 10), (21075.0, 100)]
-[(4505.0, 1), (2336.0, 1), (17314.5, 5), (15258.5, 10), (21074.5, 100), 
- (24347.5, 50), (19141.5, 20)]
-[(20415.5, 100), (15864.0, 10), (21859.0, 100), (57308.0, 50), (20058.0, 100)]
-[(22257.0, 50), (21285.5, 100), (42094.5, 50)]
-[(22257.0, 50), (21285.5, 100), (42094.5, 50)]
-"""
-"""
-    for i, image in enumerate(allImages):
-        global deleteme
-        deleteme = []
-        showImgs(comp(labelText(mkCoinsAreaLabeller()), maskFn), 
-                      [image])
-        print(deleteme[::-1])
-""" 
-    
-   
-    # showImgs(someFun1, allImages[8:])
-    # showImgs(redStuffFilter, allImages[3:4])
-     
-    # showImgs(generalContoursFn, allImages[:])
-    # showImgs(maskFn, allImages[3:4])
-    # showImgs(redStuffFilter, allImages[3:4])
-    
-    # showImgs(generalFn, allImages[:1])
-
 
 run()

@@ -3,7 +3,8 @@ import numpy as np
 from numpy import array
 from copy import copy, deepcopy
 from math import pi, sqrt
-from operator import itemgetter
+from operator import itemgetter, mul
+from functools import partial
 
 """ ----------------  utils, and local constants """
 
@@ -32,6 +33,18 @@ def comp(*fs):
     def f(f1, f2):
         return lambda x: f1(f2(x))
     return reduce(f, fs)
+
+def nestedFor(array, f):
+    aList = [list(a) for a in array]
+    for i in range(len(aList)):
+        for j in range(len(aList[0])):
+            aList[i][j] = f(aList[i][j])
+    return np.array(aList, dtype = array.dtype)
+
+def likelyhood(l1, l2):
+    def f(x,y):
+        return min(x,y) / max(x,y)
+    return reduce(mul, map(f, l1, list(l2)), 1)
 
 def identity(x): return x
 
@@ -69,6 +82,9 @@ allExceptedValues = [208, 133, 78, 67, 162, 167, 130, 130, 170]
 def getKernel(n = 7):
     return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))
 
+def getKernel(n = 7):
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))
+
 """ finds all the children of the holes. I.e. finds all inner holes """
 def childrenIdxs(hier, firstChildIdx):
     idx = hier[0][firstChildIdx][2]
@@ -93,7 +109,9 @@ def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000):
     idxs = []   
     for i, cnt in enumerate (contour):
         area = sumHolesArea (hier, contour, i)
-        if (hier[0][i][2] != -1) & (area > minArea) & (area < maxArea):
+        if (hier[0][i][2] == -1):
+            idxs.append((i, area))
+        elif (area > minArea) & (area < maxArea):
             idxs.append((i, area))
 
     return (contour, idxs)
@@ -107,6 +125,7 @@ def showImg(im):
     cv2.imshow(winName, im)
     cv2.waitKey(0)
     cv2.destroyWindow(winName)
+    return im
     
 """ a wrapper around a combinator 'f' and array of images. Then read, 
     apply function 'f' to the read image and print the result to a named window """
@@ -131,7 +150,6 @@ def printTypes(im):
     return im
 
 def printAllValues(im):
-    print im
     a1 = [v for a1 in im for v in a1]
     l = float(len(a1))
     m = {}
@@ -194,13 +212,29 @@ def splitFn(n):
         return cv2.split(im)[n]
     return f
 
-def invert(maxV = 1):
-    v1 = maxV
-    v2 = maxV+maxV
-    def f(img): 
-        t = img.dtype
-        return np.array(((img+1)%(maxV+1))*maxV, t)
+def splitterByColor(color):
+    def f(im): # im :: [[[Int]]]
+        (a1,b1,c1) = color
+        def g((a,b,c)):
+            return a
+            #partial(likelyhood, color)
+        aList = list(np.reshape(im, -1))
+        resList = range(len(aList)/3)
+        for i in resList:
+            (a,b,c) = aList[i*3], aList[i*3+1], aList[i*3+2]
+            resList[i] = likelyhood((a,b,c), (a1,b1,c1))
+        arr = np.array(resList, dtype = im.dtype)
+        arr.shape = (im.shape[0], im.shape[1])
+        return arr
     return f
+    
+def copperSlitter(): 
+    return splitterByColor((0x66, 0x0F, 0x02))
+
+def invert(img):
+    maxV = max(map(max, img))
+    t = img.dtype
+    return np.array(maxV-img, t)
 
 """ ----------------  masks combinators  """
 
@@ -228,14 +262,16 @@ def itemsWithBigHoles(orig):
 
     return gray
 
-def fillSmallHoles(orig):
-    (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), 0, 350000)
-    gray = np.zeros((len (orig), len (orig[0])))
+def fillSmallHoles(minA = 0, maxA = 350000):
+    def f(orig):
+        (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), minA, maxA)
+        gray = np.zeros((len (orig), len (orig[0])))
+        
+        cntIdx = 0
+        color = 1
+        thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
+        map(lambda (i, _) : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
+            idxs)
     
-    cntIdx = 0
-    color = 1
-    thickness = -1 # Thickness of lines the contours are drawn with. If it is negative (for example, thickness=CV_FILLED ), the contour interiors are drawn.
-    map(lambda (i, _) : cv2.drawContours(gray, [contour[i]], cntIdx, color, thickness),
-        idxs)
-
-    return gray
+        return gray
+    return f
