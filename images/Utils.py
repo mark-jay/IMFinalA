@@ -102,15 +102,18 @@ def sumHolesArea(hier, contours, firstChildIdx):
 """ finds all the contours which have an area more than 'minArea', but < 'maxArea'
     returns all the contours and a list of the pairs(indexes, area) that meet the 
     requirements """
-def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000):    
+def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000, 
+                              inclFilled = False):    
     contour,hier = cv2.findContours(np.array(gray, np.uint8), 
                                     cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
  
     idxs = []   
     for i, cnt in enumerate (contour):
         area = sumHolesArea (hier, contour, i)
+        
         if (hier[0][i][2] == -1):
-            idxs.append((i, area))
+            if (inclFilled):
+                idxs.append((i, area))
         elif (area > minArea) & (area < maxArea):
             idxs.append((i, area))
 
@@ -254,7 +257,7 @@ def splitterByColor(aColor):
             return 255 * (reduce(add, lst, 0) / len(lst))
         (im3, im2, im1) = cv2.split(im)
         (c1,  c2,  c3)  = aColor
-        (im1, im2, im3) = (showImg(g(im1, c1)), g(im2, c2), g(im3, c3))
+        (im1, im2, im3) = (g(im1, c1), g(im2, c2), g(im3, c3))
         resImg = normalizeGS(h(im1,im2,im3))
         
         return resImg

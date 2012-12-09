@@ -80,9 +80,13 @@ def testImages(f, images, expectedValues):
 
 def addRedStuffFilter(maskFn):
     redStuffFilter = comp(invert, 
-                          itemsWithBigHoles, closeMO(getKernel(5)), 
+                          itemsWithBigHoles, 
+                          #showImg, closeMO(getKernel(5)), 
+                          closeMO(getKernel(5)), 
                           mkThresholdFn(180), splitFn(2))
-    return combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)
+    return comp(fillSmallHoles(0, 1000000),
+                (combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)),
+                )
 
 def mixedShow(images, functions):
     [showImgs(f, [i]) for i in images for f in functions]
@@ -97,15 +101,10 @@ def run():
     defaultMaskFn = comp(fillSmallHoles(), mkThresholdFn(), 
                          mycvtConvert())
     """ 2 is a red color. for getting red coins """
-    f = dilate
-    op = cv2.MORPH_ELLIPSE
-    redCoinsMask = comp(invert, 
-                        f(cv2.getStructuringElement(op, (n,n))), 
-                        invert, 
-                        fillSmallHoles(0, 1000000), 
-                        mkThresholdFn(190), splitFn(2))
+    redCoinsMask = comp(mkThresholdFn(), yetAnotherCoinsSplitter)
     """ combination of both """
     maskFn = comp(#closeMO(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))),
+                  fillSmallHoles(0, 1000000),
                   combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
 
     filteredMaskFn = addRedStuffFilter(maskFn)
@@ -113,14 +112,16 @@ def run():
     generalContoursFn = comp(myContours, mkThresholdFn(), splitFn(2))
     
     joined = [allImages[4], allImages[5], allImages[8]]
-    
     icImages = [allImages[2], allImages[3]] # invisble coins images
+    rsImages = allImages[7:9] # red stuff images
     
-    mixedShow(icImages, 
+    mixedShow(allImages, 
               [identity, 
                #defaultMaskFn,
                #redCoinsMask,
                maskFn,
+               #filteredMaskFn, 
+               #temp,
                identity, 
                ])
 
