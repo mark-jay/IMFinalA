@@ -84,6 +84,9 @@ def addRedStuffFilter(maskFn):
                           mkThresholdFn(180), splitFn(2))
     return combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)
 
+def mixedShow(images, functions):
+    [showImgs(f, [i]) for i in images for f in functions]
+
 def run():
     n = 3
 
@@ -96,15 +99,11 @@ def run():
     """ 2 is a red color. for getting red coins """
     f = dilate
     op = cv2.MORPH_ELLIPSE
-    redCoinsMask = comp(#f(cv2.getStructuringElement(op, (n,n))), 
-                        #invert, 
-                        #fillSmallHoles(0, 1000000), 
-                        #mkThresholdFn(190), #splitFn(2))
-                        
-                        #mkThresholdFn(), #showImg,
-                        invert, showImg,
-                        copperSplitter()
-                        )
+    redCoinsMask = comp(invert, 
+                        f(cv2.getStructuringElement(op, (n,n))), 
+                        invert, 
+                        fillSmallHoles(0, 1000000), 
+                        mkThresholdFn(190), splitFn(2))
     """ combination of both """
     maskFn = comp(#closeMO(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))),
                   combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
@@ -112,13 +111,19 @@ def run():
     filteredMaskFn = addRedStuffFilter(maskFn)
 
     generalContoursFn = comp(myContours, mkThresholdFn(), splitFn(2))
-
-    startN = 0
-    lastN = 1
     
-    #showImgs(identity, allImages[startN:lastN])
-    #showImgs(defaultMaskFn, allImages[startN:lastN])
-    showImgs(redCoinsMask, allImages[startN:lastN])
+    joined = [allImages[4], allImages[5], allImages[8]]
+    
+    icImages = [allImages[2], allImages[3]] # invisble coins images
+    
+    mixedShow(icImages, 
+              [identity, 
+               #defaultMaskFn,
+               #redCoinsMask,
+               maskFn,
+               identity, 
+               ])
+
     #showImgs(maskFn, allImages[startN:lastN])
     print(deleteme[::-1])
 
