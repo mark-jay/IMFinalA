@@ -3,7 +3,7 @@ import numpy as np
 from numpy import array
 from copy import copy, deepcopy
 from math import pi, sqrt
-from operator import itemgetter, mul
+from operator import itemgetter, mul, add
 from functools import partial
 
 """ ----------------  utils, and local constants """
@@ -143,6 +143,21 @@ def printMaxMinVals(im):
     print "(max = %s, min = %s) " % (maxV, minV)
     return im
 
+def printMaxMinIdxs(im):
+    maxIdx = (0,0)
+    minIdx = (0,0)
+    for i, v in enumerate(im):
+        for j, v1 in enumerate(im[i]):
+            if (im[i][j] > im[maxIdx[0]][maxIdx[1]]):
+                maxIdx = (i,j)
+            if (im[i][j] < im[minIdx[0]][minIdx[1]]):
+                minIdx = (i,j)            
+    maxV = im[maxIdx[0]][maxIdx[1]]
+    minV = im[minIdx[0]][minIdx[1]]
+    print "(max = %s, min = %s) " % (maxV, minV)
+    print "(maxIdx = %s, minIdx = %s) " % (maxIdx, minIdx)
+    return im
+
 def printTypes(im):
     print "im type = %s" % type(im)
     print "im[0] type = %s" % type(im[0])
@@ -168,6 +183,9 @@ def printAllValues(im):
 #another way: im_gray = cv2.imread('grayscale_image.png', cv2.CV_LOAD_IMAGE_GRAYSCALE)
 def mycvtConvert(color = cv2.COLOR_BGR2GRAY, t = np.uint8):
     return lambda im : cv2.cvtColor(np.array(im, t), color)
+
+def normalizeGS(img):
+    return np.array(img, np.uint8)
 
 def mkThresholdFn(tr = 0):
     def tresholdFn(ims):
@@ -212,29 +230,47 @@ def splitFn(n):
         return cv2.split(im)[n]
     return f
 
-def splitterByColor(color):
+def intensityLikelyhood(img, intensity):
+    img = np.cast[np.int32](img)
+    
+    img = abs(img - intensity)
+
+    maxV = float(max(map(max, img)))
+    minV = float(min(map(min, img)))
+    diff = maxV - minV
+
+    img = 1.0 - ((img - minV) / diff)
+    
+    return img
+
+def splitterByColor(aColor):
     def f(im): # im :: [[[Int]]]
-        (a1,b1,c1) = color
-        def g((a,b,c)):
-            return a
-            #partial(likelyhood, color)
-        aList = list(np.reshape(im, -1))
-        resList = range(len(aList)/3)
-        for i in resList:
-            (a,b,c) = aList[i*3], aList[i*3+1], aList[i*3+2]
-            resList[i] = likelyhood((a,b,c), (a1,b1,c1))
-        arr = np.array(resList, dtype = im.dtype)
-        arr.shape = (im.shape[0], im.shape[1])
-        return arr
+        # after applying this function each element will be scaled from 0 to 1
+        def g(img, color):
+            img = intensityLikelyhood(img, color)
+            return img*img*img*img
+        def h(*lst):
+            #return 255*reduce(mul, lst, 1)
+            return 255 * (reduce(add, lst, 0) / len(lst))
+        (im3, im2, im1) = cv2.split(im)
+        (c3,  c2,  c1)  = aColor
+        (im1, im2, im3) = (showImg(g(im1, c1)), showImg(g(im2, c2)), showImg(g(im3, c3)))
+        resImg = normalizeGS(h(im1,im2,im3))
+        print resImg[0][0]
+        print min(map(min, resImg))        
+        
+        return resImg
     return f
     
-def copperSlitter(): 
-    return splitterByColor((0x66, 0x0F, 0x02))
+def copperSplitter(): 
+    copperColor = (170, 70, 30)
+    return splitterByColor(copperColor)
 
 def invert(img):
     maxV = max(map(max, img))
     t = img.dtype
     return np.array(maxV-img, t)
+
 
 """ ----------------  masks combinators  """
 

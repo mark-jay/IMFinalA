@@ -97,9 +97,14 @@ def run():
     f = dilate
     op = cv2.MORPH_ELLIPSE
     redCoinsMask = comp(#f(cv2.getStructuringElement(op, (n,n))), 
-                        invert, 
-                        fillSmallHoles(0, 1000000), 
-                        mkThresholdFn(190), splitFn(2))
+                        #invert, 
+                        #fillSmallHoles(0, 1000000), 
+                        #mkThresholdFn(190), #splitFn(2))
+                        
+                        #mkThresholdFn(), #showImg,
+                        invert, showImg,
+                        copperSplitter()
+                        )
     """ combination of both """
     maskFn = comp(#closeMO(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))),
                   combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
@@ -108,11 +113,11 @@ def run():
 
     generalContoursFn = comp(myContours, mkThresholdFn(), splitFn(2))
 
-    startN = 3
-    lastN = 4
+    startN = 0
+    lastN = 1
     
-    showImgs(identity, allImages[startN:lastN])
-    showImgs(defaultMaskFn, allImages[startN:lastN])
+    #showImgs(identity, allImages[startN:lastN])
+    #showImgs(defaultMaskFn, allImages[startN:lastN])
     showImgs(redCoinsMask, allImages[startN:lastN])
     #showImgs(maskFn, allImages[startN:lastN])
     print(deleteme[::-1])
