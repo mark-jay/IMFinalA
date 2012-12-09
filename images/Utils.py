@@ -253,11 +253,9 @@ def splitterByColor(aColor):
             #return 255*reduce(mul, lst, 1)
             return 255 * (reduce(add, lst, 0) / len(lst))
         (im3, im2, im1) = cv2.split(im)
-        (c3,  c2,  c1)  = aColor
-        (im1, im2, im3) = (showImg(g(im1, c1)), showImg(g(im2, c2)), showImg(g(im3, c3)))
+        (c1,  c2,  c3)  = aColor
+        (im1, im2, im3) = (showImg(g(im1, c1)), g(im2, c2), g(im3, c3))
         resImg = normalizeGS(h(im1,im2,im3))
-        print resImg[0][0]
-        print min(map(min, resImg))        
         
         return resImg
     return f
@@ -271,6 +269,11 @@ def invert(img):
     t = img.dtype
     return np.array(maxV-img, t)
 
+def yetAnotherCoinsSplitter(img):
+    copperColor = (170, 70, 30)
+    img = intensityLikelyhood(cv2.split(img)[2], copperColor[0])
+    img = img*img*img*img*255
+    return normalizeGS(img)
 
 """ ----------------  masks combinators  """
 
