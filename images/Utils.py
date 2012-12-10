@@ -124,8 +124,13 @@ def findAllContourByHolesArea(gray, minArea = 1700, maxArea = 1000000000,
 
 def imwrite(filename):
     def f(im):
+        if (max(map(max,im)) <= 1):
+            im = im * 255
+        print ("writing to " + filename + " ...")
         if (not cv2.imwrite(filename, im)):
             print ("image " + filename + " was not written")
+        else:
+            print (filename + " written")
         return im
     return f
 
