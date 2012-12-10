@@ -72,10 +72,12 @@ def isCircle(per, area):
         return True
     return False
 
-allImages = ["P1000697s.jpg", "P1000698s.jpg", 
-            "P1000699s.jpg", "P1000703s.jpg", "P1000705s.jpg", 
-            "P1000706s.jpg", "P1000709s.jpg", "P1000710s.jpg", 
-            "P1000713s.jpg"]
+allImagesNames = ["P1000697s.jpg", "P1000698s.jpg", 
+                  "P1000699s.jpg", "P1000703s.jpg", "P1000705s.jpg", 
+                  "P1000706s.jpg", "P1000709s.jpg", "P1000710s.jpg", 
+                  "P1000713s.jpg"]
+
+allImages = map(lambda im:"../images/trainingSet/" + im, allImagesNames)
 
 allExceptedValues = [208, 133, 78, 67, 162, 167, 130, 130, 170]
 

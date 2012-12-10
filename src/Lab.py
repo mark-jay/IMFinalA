@@ -113,7 +113,7 @@ def run():
     icImages = onlyIdxs([2,3], allImages) # invisble coins images
     rsImages = onlyIdxs([7,8], allImages) # red stuff images
     
-    mixedShow(allImages[3:0],
+    mixedShow(allImages[0:1],
               [identity, 
                #defaultMaskFn,
                #redCoinsMask,
