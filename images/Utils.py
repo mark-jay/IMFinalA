@@ -269,6 +269,8 @@ def copperSplitter():
 
 def invert(img):
     maxV = max(map(max, img))
+    if (maxV == 0):
+        maxV = 1
     t = img.dtype
     return np.array(maxV-img, t)
 
@@ -304,9 +306,9 @@ def itemsWithBigHoles(orig):
 
     return gray
 
-def fillSmallHoles(minA = 0, maxA = 350000):
+def fillSmallHoles(minA = 0, maxA = 350000, inclFilled = False):
     def f(orig):
-        (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), minA, maxA)
+        (contour, idxs) = findAllContourByHolesArea(deepcopy(orig), minA, maxA, inclFilled)
         gray = np.zeros((len (orig), len (orig[0])))
         
         cntIdx = 0

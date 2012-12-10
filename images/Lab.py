@@ -78,16 +78,6 @@ def testImages(f, images, expectedValues):
 
 """ ----------------  resulting filters and entry point """
 
-def addRedStuffFilter(maskFn):
-    redStuffFilter = comp(invert, 
-                          itemsWithBigHoles, 
-                          #showImg, closeMO(getKernel(5)), 
-                          closeMO(getKernel(5)), 
-                          mkThresholdFn(180), splitFn(2))
-    return comp(fillSmallHoles(0, 1000000),
-                (combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)),
-                )
-
 def mixedShow(images, functions):
     [showImgs(f, [i]) for i in images for f in functions]
 
@@ -104,23 +94,30 @@ def run():
     redCoinsMask = comp(mkThresholdFn(), yetAnotherCoinsSplitter)
     """ combination of both """
     maskFn = comp(#closeMO(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n,n))),
-                  fillSmallHoles(0, 1000000),
+                  fillSmallHoles(0, 1000000, inclFilled = True),
                   combineMasks(cv2.bitwise_or, defaultMaskFn, redCoinsMask))
 
-    filteredMaskFn = addRedStuffFilter(maskFn)
-
     generalContoursFn = comp(myContours, mkThresholdFn(), splitFn(2))
+
+    redStuffFilter = comp(invert, 
+                          itemsWithBigHoles,
+                          #showImg, closeMO(getKernel(5)), 
+                          closeMO(getKernel(5)), 
+                          mkThresholdFn(180), splitFn(2))
+
+    filteredMaskFn = combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)
     
     joined = [allImages[4], allImages[5], allImages[8]]
     icImages = [allImages[2], allImages[3]] # invisble coins images
     rsImages = allImages[7:9] # red stuff images
     
-    mixedShow(allImages, 
+    mixedShow(allImages[0:99], 
               [identity, 
                #defaultMaskFn,
                #redCoinsMask,
-               maskFn,
-               #filteredMaskFn, 
+               #maskFn,
+               #redStuffFilter,
+               filteredMaskFn, 
                #temp,
                identity, 
                ])
