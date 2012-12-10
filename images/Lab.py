@@ -5,6 +5,7 @@ from copy import copy, deepcopy
 from math import pi, sqrt
 from operator import itemgetter
 
+from Utils import allExceptedValues, allImages # for editor
 from Utils import *
 from CoinsCounting import *
  
@@ -23,6 +24,10 @@ def getId():
     global ___id___
     ___id___ = ___id___ + 1
     return ___id___
+
+def onlyIdxs(lst, idxs):
+    filtered = filter(lambda (i,v): i in idxs, zip(range(len(lst)), lst))
+    return map(itemgetter(1), filtered)
 
 """ ----------------  utils: image labeling """
 
@@ -48,19 +53,16 @@ def imgToFueaturesList(img):
 def mkCoinsAreaLabeller():
     minArea, maxArea = 2000, 200000000
     def f(orig):
-        def g(f):
-            id_ = getId()
-            print id_
-            v = logged(featToValue)(f)
-            if (v!=0):
-                point = (int(f['Centroid'][0]), int(f['Centroid'][1]))
-                text = str(id_)
-                deleteme.append((f['area'], v))
+        def g(feat):
+            v = featToValue(feat)
+            if (feat['area']>100):
+                point = (int(feat['Centroid'][0]), int(feat['Centroid'][1]))
+                text = str(v)
+                deleteme.append((feat['area'], v))
                 return [(text, point)]
             return []
         
         return [x for a1 in map(g, imgToFueaturesList(orig)) for x in a1]
-        
     return f
 
 """ ----------------  tests """
@@ -107,22 +109,22 @@ def run():
 
     filteredMaskFn = combineMasks(cv2.bitwise_and, maskFn, redStuffFilter)
     
-    joined = [allImages[4], allImages[5], allImages[8]]
-    icImages = [allImages[2], allImages[3]] # invisble coins images
-    rsImages = allImages[7:9] # red stuff images
+    joined = onlyIdxs([4,5,8], allImages)
+    icImages = onlyIdxs([2,3], allImages) # invisble coins images
+    rsImages = onlyIdxs([7,8], allImages) # red stuff images
     
-    mixedShow(allImages[0:99], 
+    mixedShow(allImages[3:0],
               [identity, 
                #defaultMaskFn,
                #redCoinsMask,
                #maskFn,
                #redStuffFilter,
-               filteredMaskFn, 
+               comp(labelText(mkCoinsAreaLabeller()), filteredMaskFn),
                #temp,
                identity, 
                ])
-
-    #showImgs(maskFn, allImages[startN:lastN])
+    
+    #testImages(filteredMaskFn, allImages, allExceptedValues)
     print(deleteme[::-1])
 
 run()
