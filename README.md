@@ -68,7 +68,54 @@ So finally we have:
 Where we can see coins and other object. We hope we can filter other objects checking features of the objects such as perimeter, area, circularity and, maybe, others
 
 
-Description of the image processing
-===================================
+Description of the classifying algorithm
+========================================
 
-in progress
+Features to classify by
+-----------------------
+
+Firstly lets define features we will use. They defined in the Utils.getFeatures(contour) most of the features(but not all of them) obtained using cv2.moments. 
+They are:
+ area - a float value which represents an area
+ perimeter - a float value which represents a perimeter
+ BoundingBox - a tuple: (x,y,width,height). Obtained by using cv2.boundingRect
+ Centroid - a centroid. Could be a tuple (x,y) or string = 'undefined'. if it was impossible to get a centroid
+ EquivDiameter - diameter of circle with same area as region
+ Extent - ratio of area of region to area of bounding box
+
+ We will not use all the features right now, but may be later
+
+Generating data
+---------------
+
+All the generated data can be found in images/generatedData/. We generated the images with 
+
+Training dataSet
+----------------
+
+The module AprioryData contains all the data obtained from the training dataset. It is an array of tuples (features, tag), which are a dictionary and an integer
+respectively.
+
+Also we have tagsVals which are pairs tags and coins values. If it is 2 joined coins then a value will be the value of the first one + the value of the second one
+
+Given that we can find mean value of each feature for all the coins and all the coins pairs
+
+A function featsVals is the only function we'd like to export from this module and as I said this module supposed to have no logic, only data or at most average data.
+
+Coins counting 
+--------------
+
+The module CoinsCounting supposed to export only 1 function: featToValue. This function receives features obtained by using Utils.getFeatures and 
+returns the value that as close as possible to the corresponding value from the training data. Coefficient of the likelyhood of features1 and features2 
+is as follow:
+
+>areaC = min(fArea, fs['area']) / max(fArea, fs['area'])
+>perC = min(fPer, per) / max(fPer, per)
+>circC = min(fCirc, circ) / max(fCirc, circ)
+>coef = areaC * perC * circC
+
+So if all the features will be the same result will be 1. Otherwise it is lower and could be up to 0.
+If coefficient more than 0.75 it seems like it is a coin  with value v. otherwise it's something else and value will be zero.
+Circularity of single coins less than 18.5, while coupled or joined ones is between 20.0 and 28.0. Or at least we believe so.=)
+
+So all we need to know amount of the coins so far is to apply featToValue to every object in the image after applying a filter.
