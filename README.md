@@ -109,10 +109,10 @@ The module CoinsCounting supposed to export only 1 function: featToValue. This f
 returns the value that as close as possible to the corresponding value from the training data. Coefficient of the likelyhood of features1 and features2 
 is as follow:
 
->areaC = min(fArea, fs['area']) / max(fArea, fs['area'])
->perC = min(fPer, per) / max(fPer, per)
->circC = min(fCirc, circ) / max(fCirc, circ)
->coef = areaC * perC * circC
+    areaC = min(fArea, fs['area']) / max(fArea, fs['area'])
+    perC = min(fPer, per) / max(fPer, per)
+    circC = min(fCirc, circ) / max(fCirc, circ)
+    coef = areaC * perC * circC
 
 So if all the features will be the same result will be 1. Otherwise it is lower and could be up to 0.
 If coefficient more than 0.75 it seems like it is a coin  with value v. otherwise it's something else and value will be zero.
