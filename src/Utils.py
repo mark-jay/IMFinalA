@@ -72,10 +72,9 @@ def isCircle(per, area):
         return True
     return False
 
-allImagesNames = ["P1000697s.jpg", "P1000698s.jpg", 
-                  "P1000699s.jpg", "P1000703s.jpg", "P1000705s.jpg", 
-                  "P1000706s.jpg", "P1000709s.jpg", "P1000710s.jpg", 
-                  "P1000713s.jpg"]
+allImagesNames = ["P1000697s.jpg", "P1000698s.jpg", "P1000699s.jpg", 
+                  "P1000703s.jpg", "P1000705s.jpg", "P1000706s.jpg", 
+                  "P1000709s.jpg", "P1000710s.jpg", "P1000713s.jpg"]
 
 allImages = map(lambda im:"../images/trainingSet/" + im, allImagesNames)
 
@@ -195,6 +194,12 @@ def printAllValues(im):
     print "all values: %s" % zip(m.keys(), probValues)
     return im
 
+def printText(imToText):
+    def f(im):
+        print (imToText(im))
+        return im
+    return f
+    
 """ ----------------  utils: image processing basic stuff """
 
 #another way: im_gray = cv2.imread('grayscale_image.png', cv2.CV_LOAD_IMAGE_GRAYSCALE)

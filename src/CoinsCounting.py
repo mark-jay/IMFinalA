@@ -6,15 +6,11 @@ from math import pi, sqrt
 from operator import itemgetter
 
 from Utils import *
+from AprioriData import featsVals
 
 """ ----------------  coins counting """
-[(1, 10017.0), (2, 13967.0), (5, 17115.0), 
- (10, 15040.5), (20, 18918.5), (20, 19390.0), (50, 22790.5), (100, 20872.0)]
 
-coinsAreas = [(1, 10017.0), (2, 13967.0), (5, 17650.0), (10, 15000),
-              (20, 19500), (50, 23000), (100, 21000)]
-
-def allCoinsCombosMaker(coinsAreas):
+def allCoinsCombosMaker__deprecated(coinsAreas):
 
     def areaToRad(area):
         # S = Pi*r*r,
@@ -56,8 +52,6 @@ def allCoinsCombosMaker(coinsAreas):
 
     return map(mkCombo, mkAllPair(coinsAreas)) + map(expandTuple, coinsAreas)
 
-allCoinsCombos = allCoinsCombosMaker(coinsAreas)
-
 def shapeToValue((shapeArea, shapePerimeter)):
     if (isCircle(shapePerimeter, shapeArea)):
         return areaToCoinValue(shapeArea)
@@ -73,14 +67,16 @@ def featToValue(f):
     if (fArea*fPer > 0):                     # an object
         fCirc= getCircularity(fPer, fArea)
         if ((fCirc < 18.5) |                  # a single coin
-            ((fCirc > 20.) & (fCirc < 26.))):  # two coins
-            def f((v, area, per, circ)):
-                areaC = min(fArea, area) / max(fArea, area) # coefficient
+            ((fCirc > 20.) & (fCirc < 28.))):  # two coins
+            def f((fs, v)):
+                per = fs['perimeter']
+                circ = getCircularity(per, fs['area'])
+                areaC = min(fArea, fs['area']) / max(fArea, fs['area']) # coefficient
                 perC = min(fPer, per) / max(fPer, per)      # coefficient
                 circC = min(fCirc, circ) / max(fCirc, circ)     # coefficient
                 coef = areaC * perC * circC
-                return (coef, v)
-            (coef,v) = sorted(map(f, allCoinsCombos), reverse=True)[0]
+                return ((coef, v), fs)
+            ((coef, v), fs) = sorted(map(f, featsVals), reverse=True)[0]
             if (coef > 0.1):
                 return v
     return 0

@@ -58,7 +58,7 @@ def mkCoinsAreaLabeller():
             if (feat['area']>100):
                 point = (int(feat['Centroid'][0]), int(feat['Centroid'][1]))
                 text = str(v)
-                deleteme.append((feat['area'], v))
+                deleteme.append((feat, text))
                 return [(text, point)]
             return []
         
@@ -113,18 +113,18 @@ def run():
     icImages = onlyIdxs([2,3], allImages) # invisble coins images
     rsImages = onlyIdxs([7,8], allImages) # red stuff images
     
-    mixedShow(allImages[0:1],
-              [identity, 
+    mixedShow(allImages[4:4],
+              [#identity,
                #defaultMaskFn,
                #redCoinsMask,
                #maskFn,
                #redStuffFilter,
                comp(labelText(mkCoinsAreaLabeller()), filteredMaskFn),
                #temp,
-               identity, 
+               identity,
                ])
     
-    #testImages(filteredMaskFn, allImages, allExceptedValues)
-    print(deleteme[::-1])
+    testImages(filteredMaskFn, allImages, allExceptedValues)
+    #print(deleteme[::-1])
 
 run()
