@@ -52,6 +52,8 @@ def allCoinsCombosMaker__deprecated(coinsAreas):
 
     return map(mkCombo, mkAllPair(coinsAreas)) + map(expandTuple, coinsAreas)
 
+coinsCombos = featsVals
+
 def shapeToValue((shapeArea, shapePerimeter)):
     if (isCircle(shapePerimeter, shapeArea)):
         return areaToCoinValue(shapeArea)
@@ -65,7 +67,7 @@ def featToValue(f):
     fPer = f['perimeter']
     fArea = f['area']
     if (fArea*fPer > 0):                     # an object
-        fCirc= getCircularity(fPer, fArea)
+        fCirc = getCircularity(fPer, fArea)
         if ((fCirc < 18.5) |                  # a single coin
             ((fCirc > 20.) & (fCirc < 28.))):  # two coins
             def f((fs, v)):
@@ -76,8 +78,9 @@ def featToValue(f):
                 circC = min(fCirc, circ) / max(fCirc, circ)     # coefficient
                 coef = areaC * perC * circC
                 return ((coef, v), fs)
-            ((coef, v), fs) = sorted(map(f, featsVals), reverse=True)[0]
-            if (coef > 0.1):
+            ((coef, v), fs) = sorted(map(f, coinsCombos), reverse=True)[0]
+            if (coef > 0.75):
+                print ((coef, v), fCirc, fs)
                 return v
     return 0
 

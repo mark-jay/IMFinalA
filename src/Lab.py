@@ -25,7 +25,7 @@ def getId():
     ___id___ = ___id___ + 1
     return ___id___
 
-def onlyIdxs(lst, idxs):
+def onlyIdxs(idxs, lst):
     filtered = filter(lambda (i,v): i in idxs, zip(range(len(lst)), lst))
     return map(itemgetter(1), filtered)
 
@@ -59,6 +59,7 @@ def mkCoinsAreaLabeller():
                 point = (int(feat['Centroid'][0]), int(feat['Centroid'][1]))
                 text = str(v)
                 deleteme.append((feat, text))
+                print (text, point)
                 return [(text, point)]
             return []
         
@@ -68,6 +69,7 @@ def mkCoinsAreaLabeller():
 """ ----------------  tests """
 
 def testImages(f, images, expectedValues):
+    print "\n" + "starting tests"
     def testTuple((a, e, i)):
         if a != e:
             print str(i)+")","actual = " + str(a), "expected = " + str(e)
@@ -112,8 +114,9 @@ def run():
     joined = onlyIdxs([4,5,8], allImages)
     icImages = onlyIdxs([2,3], allImages) # invisble coins images
     rsImages = onlyIdxs([7,8], allImages) # red stuff images
+    failed =   onlyIdxs([3,6,7,8], allImages)
     
-    mixedShow(allImages[4:4],
+    mixedShow(allImages[8:9],
               [#identity,
                #defaultMaskFn,
                #redCoinsMask,
@@ -124,7 +127,7 @@ def run():
                identity,
                ])
     
-    testImages(filteredMaskFn, allImages, allExceptedValues)
-    #print(deleteme[::-1])
+    testImages(filteredMaskFn, allImages[8:9], allExceptedValues[8:9])
+    print(deleteme[::-1])
 
 run()
